@@ -114,7 +114,7 @@ class se3(LieAlgebra): # param: [x,y,z,theta1,theta2,theta3]
         # translational components u
         u = np.array([v[0],v[1],v[2]])
 
-        R = DCM.so3_exp(so3(v_so3))  #'Dcm' for direction cosine matrix representation of so3 LieGroup Rotational
+        R = so3.exp(X_so3)  #'Dcm' for direction cosine matrix representation of so3 LieGroup Rotational
         C1 = np.where(np.abs(theta)<EPS, 1 - theta ** 2 / 6 + theta ** 4 / 120, np.sin(theta)/theta)
         C2 = np.where(np.abs(theta)<EPS, 0.5 - theta ** 2 / 24 + theta ** 4 / 720, (1 - np.cos(theta)) / theta ** 2)
         C = np.where(np.abs(theta)<EPS, 1/6 - theta ** 2 /120 + theta ** 4 / 5040, (1 - C1) / theta ** 2)
@@ -145,11 +145,11 @@ class SE3(LieGroup):
         return np.block([[self.R.T, -self.R.T@self.p.reshape(3,1)],
                          [0,0,0,1]])
 
-    @property
-    def log(self): # SE3 matrix to se3 matrix
-        R = self.R # get the SO3 Lie group matrix
+    @classmethod
+    def log(cls, X): # SE3 matrix to se3 matrix
+        R = X[0:3, 0:3] # get the SO3 Lie group matrix
         theta = np.arccos((np.trace(R) - 1) / 2)
-        wSkew = so3(DCM(R).log).wedge
+        wSkew = DCM(R).log
         C1 = np.where(np.abs(theta)<EPS, 1 - theta ** 2 / 6 + theta ** 4 / 120, np.sin(theta)/theta)
         C2 = np.where(np.abs(theta)<EPS, 0.5 - theta ** 2 / 24 + theta ** 4 / 720, (1 - np.cos(theta)) / theta ** 2)
         V_inv = (
@@ -158,7 +158,7 @@ class SE3(LieGroup):
             + (1 / theta**2) * (1 - C1 / (2 * C2)) * wSkew @ wSkew
         )
 
-        t = self.p
+        t = X[0:3,3]
         uInv = V_inv @ t
         return np.block([[wSkew, uInv.reshape(3,1)],[0,0,0,0]])
     
