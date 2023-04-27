@@ -54,14 +54,13 @@ class se3(LieAlgebra): # param: [x,y,z,theta1,theta2,theta3]
     def __init__(self, param):
         super().__init__(param)
         assert param.shape == (6,1) or param.shape == (6,)
+        self.w = so3(param[3:6]).wedge
+        self.v = param[0:3]
 
     @property
     def wedge(self):
-        v = self.param[0:3].reshape(3,1)
-        theta = self.param[3:6]
-        tw = so3(theta).wedge
         return np.block([
-            [tw, v],
+            [self.w, self.v.reshape(3,1)],
             [0, 0, 0, 0]
         ])
 
@@ -71,27 +70,8 @@ class se3(LieAlgebra): # param: [x,y,z,theta1,theta2,theta3]
         takes 6x1 lie algebra
         input vee operator [x,y,z,theta1,theta2,theta3]
         """
-        v = self.param
-        ad_se3 = np.zeros((6,6))
-        ad_se3[0, 1] = -v[5]
-        ad_se3[0, 2] = v[3]
-        ad_se3[0, 4] = -v[2]
-        ad_se3[0, 5] = v[1]
-        ad_se3[1, 0] = v[5]
-        ad_se3[1, 2] = -v[3]
-        ad_se3[1, 3] = v[2]
-        ad_se3[1, 5] = -v[0]
-        ad_se3[2, 0] = -v[4]
-        ad_se3[2, 1] = v[3]
-        ad_se3[2, 3] = -v[1]
-        ad_se3[2, 4] = v[0]
-        ad_se3[3, 4] = -v[5]
-        ad_se3[3, 5] = v[4]
-        ad_se3[4, 3] = v[5]
-        ad_se3[4, 5] = -v[3]
-        ad_se3[5, 3] = -v[4]
-        ad_se3[5, 4] = v[3]
-        return ad_se3
+        vw = so3(self.v).wedge
+        return np.block([[self.w, vw],[np.zeros((3,3)), self.w]])
  
     @classmethod
     def vee(cls, w): # w is 4x4 Lie algebra matrix
@@ -129,9 +109,12 @@ class SE3(LieGroup):
         assert param.shape == (6,1) or param.shape == (6,)
         self.R = DCM.from_euler(param[3:6])
         self.p = param[0:3]
-        self.M = np.block([
+
+    @property
+    def to_matrix(self):
+        return np.block([
             [self.R, self.p.reshape(3,1)],
-            [np.zeros((1,3)), np.array(1)]
+            [np.zeros((1,3)), 1]
         ])
 
     @property
