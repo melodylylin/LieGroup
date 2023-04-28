@@ -1,34 +1,34 @@
 import numpy as np
+from base import LieAlgebra, LieGroup, EPS
 
 """
 so3: 
 - use euler angle as element
-- exp gives SO3 3x3 matrix (DCM)
-- if you want the input or the output of exp be in other format, use SO3 class to do transfomation
+- if you want the input be in other format, use SO3 class to do transfomation
 """
 
-EPS = 1e-7
+"""
+SO3:
+- to_matrix: return DCM
+- to_vec: DCM return euler, others don't need to_vec
+- exp & log: inputs should be in so3 or SO3 format, both return matrix lie group
+"""
 
-class LieAlgebra:
-    def __init__(self, param): # param should be np.array
+class so3algebra(LieAlgebra): # euler angle body 3-2-1
+    def __init__(self, param):
+        super().__init__(param)
+        assert param.shape == (3,1) or param.shape == (3,)
         self.param = param
 
-    def __add__(self, other):
-        return self.add(other)
+    def add(self, other):
+        return so3algebra(self.param + other.param)
 
-    def __sub__(self, other):
-        return self.add(other.neg())
+    def rmul(self, scalar):
+        return so3algebra(scalar * self.param)
+    
+    def neg(self):
+        return so3algebra(-self.param)
 
-    def __rmul__(self, other):
-        return self.rmul(other)
-
-    def __neg__(self):
-        return self.neg()
-
-    def __eq__(self, other) -> bool:
-        return np.linalg.norm(self.param - other.param) < EPS
-
-class so3(LieAlgebra): # euler angle body 3-2-1
     @property
     def wedge(self):
         theta1 = self.param[0]
@@ -39,6 +39,10 @@ class so3(LieAlgebra): # euler angle body 3-2-1
             [theta3, 0, -theta1],
             [-theta2, theta1, 0]
         ])
+    
+    @property
+    def ad_matrix(self):
+        raise NotImplementedError("")
 
     @classmethod
     def vee(cls, w):
@@ -46,77 +50,55 @@ class so3(LieAlgebra): # euler angle body 3-2-1
         theta2 = w[0,2]
         theta3 = w[1,0]
         return np.array([theta1,theta2,theta3])
-
-    @property
-    def inv(self): # return so3 matrix
-        return so3(-self.param).wedge
-
-
-    def add(self, other):
-        return so3(self.param + other.param)
-
-    def rmul(self, scalar):
-        return so3(scalar * self.param)
     
-    @classmethod
-    def exp(cls, w): # so3 matrix -> SO3 matrix (DCM)
-        v = cls.vee(w)
-        theta = np.linalg.norm(v)
-        A = np.where(np.abs(theta) < EPS, 1 - theta**2/6 + theta**4/120, np.sin(theta)/theta)
-        B = np.where(np.abs(theta)<EPS, 0.5 - theta ** 2 / 24 + theta ** 4 / 720, (1 - np.cos(theta)) / theta ** 2)
-        return np.eye(3) + A * w + B * w @ w # return DCM
-
-class LieGroup:
-    """
-    A Lie Group with group operator (*) is:
-    (C)losed under operator (*)
-    (A)ssociative with operator (*), (G1*G2)*G3 = G1*(G2*G3)
-    (I)nverse: has an inverse such that G*G^-1 = e
-    (N)uetral: has a neutral element: G*e = G
-    Abstract base class, must implement:
-    exp, identity, inv, log, product
-    """
-
-    def __init__(self, param):
-        self.param = param
-
-    def __mul__(self, other):
-        """
-        The * operator will be used as the Group multiplication operator
-        (see product)
-        """
-        if not isinstance(other, type(self)):
-            return TypeError("Lie Group types must match for product")
-        assert isinstance(other, LieGroup)
-        return self.product(other)
-
-    def __eq__(self, other) -> bool:
-        return np.all(self.param == other.param)
 
 class SO3DCM(LieGroup): # a SO3 direct cosine matrix (3x3)
     def __init__(self, param):
         super().__init__(param)
         assert self.param.shape == (3, 3)
+        self.param = param
+
+    @staticmethod
+    def identity():
+        return SO3DCM(np.eye(3)).param
 
     @property
-    def identity(self):
-        return SO3DCM(np.eye(3))
+    def to_matrix(self):
+        return self.param
 
     @property
     def inv(self):
         return SO3DCM(self.param.T).param
 
     @property
-    def log(self):
-        R = self.param
+    def product(self, other: "SO3DCM"):
+        raise NotImplementedError("")
+    
+    @property
+    def Ad_matrix(self):
+        return self.to_matrix
+    
+    @classmethod
+    def to_vec(cls, X):
+        return SO3Euler.from_dcm(X)
+    
+    @classmethod
+    def log(cls, G: "SO3DCM") -> "so3algebra":
+        R = G.param
         theta = np.arccos((np.trace(R) - 1) / 2)
         A = np.where(np.abs(theta) < EPS, 1 - theta**2/6 + theta**4/120, np.sin(theta)/theta)
         return (R - R.T) / (A * 2)
     
-    @property
-    def product(self, other: "SO3DCM"):
-        raise NotImplementedError("")
+    @classmethod
+    def exp(cls, g: "so3algebra") -> "SO3DCM": # so3 matrix -> SO3 matrix (DCM)
+        v = g.param
+        w = g.wedge
+        theta = np.linalg.norm(v)
+        A = np.where(np.abs(theta) < EPS, 1 - theta**2/6 + theta**4/120, np.sin(theta)/theta)
+        B = np.where(np.abs(theta)<EPS, 0.5 - theta ** 2 / 24 + theta ** 4 / 720, (1 - np.cos(theta)) / theta ** 2)
+        return np.eye(3) + A * w + B * w @ w # return DCM
 
+    # funcions of getting DCM from other format of angles
     @classmethod
     def from_quat(cls, q):
         assert q.shape == (4, 1) or q.shape == (4,)
@@ -162,25 +144,39 @@ class SO3DCM(LieGroup): # a SO3 direct cosine matrix (3x3)
         return cls.from_quat(SO3Quat.from_euler(e))
 
 class SO3Quat(LieGroup):
-    def __init__(self):
+    def __init__(self, param):
         super().__init__(param)
         assert self.param.shape == (4,1)
+        self.param = param
 
     @staticmethod
-    def identity(self):
+    def identity():
         return SO3Quat(np.array([1, 0, 0, 0]))
-
-    def product(self, other):
-        pass
     
+    @property
+    def to_matrix(self):
+        return SO3DCM.from_quat(self.param)
+
     @property
     def inv(self):
         return SO3Quat(np.vstack((-self.param[:3], self.param[3])))
 
     @property
-    def log(self): # Lie group to Lie algebra
+    def product(self, other):
+        pass
+    
+    @property
+    def Ad_matrix(self):
+        return self.to_matrix
+
+    @classmethod
+    def to_vec(cls, X):
+        pass
+    
+    @classmethod
+    def log(cls, G: "SO3Quat") -> "so3algebra": # Lie group to Lie algebra
         v = np.zeros((3,))
-        norm_q = np.norm(self.param)
+        q = G.param
         theta = 2 * np.arccos(q[0])
         c = np.sin(theta / 2)
         v[0] = theta * q[1] / c
@@ -188,18 +184,15 @@ class SO3Quat(LieGroup):
         v[2] = theta * q[3] / c
         return np.where(np.abs(c) > EPS, v, np.array([0, 0, 0]))
 
-    @property
-    def to_matrix(self):
-        return SO3DCM.from_quat(self.param)
+    @classmethod
+    def exp(cls, g: "so3algebra") -> "SO3Quat": # exp: so3 element to quat
+        theta = np.norm(g.param)
+        w = np.cos(theta / 2)
+        c = np.sin(theta / 2)
+        v = c * g.param / theta
+        return SO3Quat(np.vstack((v, w)))
 
-    # @classmethod
-    # def so3_exp(cls, g: so3) -> "LieGroupSO3Quat":
-    #     theta = np.norm(g.param)
-    #     w = np.cos(theta / 2)
-    #     c = np.sin(theta / 2)
-    #     v = c * g.param / theta
-    #     return SO3Quat(np.vstack((v, w)))
-
+    # funcions of getting Quat from other format of angles
     @classmethod
     def from_mrp(cls, r):
         assert r.shape == (4, 1) or r.shape == (4,)
@@ -272,29 +265,44 @@ class SO3Quat(LieGroup):
         return q
 
 class SO3Euler(LieGroup):
-    def __init__(self):
+    def __init__(self, param):
         super().__init__(param)
         assert self.param.shape == (3,1) or self.param.shape == (3,)
+        self.param = param
     
     @staticmethod
-    def identity(self):
+    def identity():
         return np.array([0, 0, 0])
+    
+    @property
+    def to_matrix(self):
+        return SO3DCM.from_euler(self.param)
 
     @property
     def inv(self, cls):
         return cls.from_dcm(SO3DCM.inv(SO3DCM.from_euler(self.param)))
 
     @property
-    def log(self):
+    def product(self, other: "SO3DCM"):
         raise NotImplementedError("")
 
-    def __matmul__(self, other: "LieGroupSO3Dcm"):
+    @property
+    def Ad_matrix(self):
+        return self.to_matrix
+    
+    @classmethod
+    def to_vec(cls, X):
+        pass
+
+    @classmethod
+    def log(cls, G: "SO3Euler") -> "so3algebra":
         raise NotImplementedError("")
     
-    @property
-    def to_matrix(self):
-        return SO3DCM.from_euler(self.param)
-
+    @classmethod
+    def exp(cls, g: "so3algebra") -> "SO3Euler":
+        raise NotImplementedError("")
+    
+    # funcions of getting Euler from other format of angles
     @classmethod
     def from_quat(cls, q):
         assert q.shape == (4, 1) or q.shape == (4,)
@@ -321,13 +329,25 @@ class SO3Euler(LieGroup):
 class SO3MRP(LieGroup):
     def __init__(self, param):
         super().__init__(param)
-        assert param.shape == ()
+        assert param.shape == (4, 1) or param.shape == (4,)
+        self.param = param
 
-    def product(self, r1, r2):
-        assert r1.shape == (4, 1) or r1.shape == (4,)
-        assert r2.shape == (4, 1) or r2.shape == (4,)
-        a = r1[:3]
-        b = r2[:3]
+    @staticmethod
+    def identity(self):
+        return np.array([0, 0, 0, 0])
+    
+    @property
+    def to_matrix(self):
+        return DCM.from_mrp(self.param)
+    
+    @property
+    def inv(self, r):
+        return np.block([-self.param[:3], self.param[3]])
+
+    @property
+    def product(self, other):
+        a = self.param[:3]
+        b = other.param[:3]
         na_sq = np.dot(a, a)
         nb_sq = np.dot(b, b)
         res = np.zeros((4,1))
@@ -335,46 +355,44 @@ class SO3MRP(LieGroup):
         res[:3] = ((1 - na_sq) * b + (1 - nb_sq) * a - 2 * np.cross(b, a)) / den
         res[3] = 0  # shadow state
         return res
-
-    def inv(self, r):
-        assert r.shape == (4, 1) or r.shape == (4,)
-        return np.block([-r[:3], r[3]])
-
-    def exp(self, v):
-        assert v.shape == (3, 1) or v.shape == (3,)
-        angle = np.norm(v)
-        res = np.zeros((4,1))
-        res[:3] = np.tan(angle / 4) * v / angle
-        res[3] = 0
-        return np.where(angle > EPS, res, np.array([0, 0, 0, 0]))
-
-    def log(self, r):
-        assert r.shape == (4, 1) or r.shape == (4,)
-        n = np.norm(r[:3])
-        return np.where(n > EPS, 4 * np.arctan(n) * r[:3] / n, np.array([0, 0, 0]))
+    
+    @property
+    def Ad_matrix(self):
+        return self.to_matrix
 
     def shadow(self, r):
         assert r.shape == (4, 1) or r.shape == (4,)
         n_sq = np.dot(r[:3], r[:3])
         res = np.zeros((4, 1))
         res[:3] = -r[:3] / n_sq
-        res[3] = ca.logic_not(r[3])
+        res[3] = np.logical_not(r[3])
         return res
 
     def shadow_if_necessary(self, r):
         assert r.shape == (4, 1) or r.shape == (4,)
         return np.where(np.norm(r[:3]) > 1, self.shadow(r), r)
+    
+    @classmethod
+    def to_vec(cls, R):
+        return SO3MRP.from_dcm(R)
+    
+    @classmethod
+    def log(cls, G: "SO3MRP") -> "so3algebra":
+        r = G.param
+        n = np.norm(r[:3])
+        return np.where(n > EPS, 4 * np.arctan(n) * r[:3] / n, np.array([0, 0, 0]))
 
-    # def kinematics(self, r, w):
-    #     assert r.shape == (4, 1) or r.shape == (4,)
-    #     assert w.shape == (3, 1) or w.shape == (3,)
-    #     a = r[:3]
-    #     n_sq = np.dot(a, a)
-    #     X = self.wedge(a)
-    #     B = 0.25 * ((1 - n_sq) * np.eye(3) + 2 * X + 2 * a @ a.T)
-    #     return ca.vertcat(B @ w, 0)
+    @classmethod
+    def exp(cls, g: "so3algebra") -> "SO3MRP":
+        v = g.param
+        angle = np.norm(v)
+        res = np.zeros((4,1))
+        res[:3] = np.tan(angle / 4) * v / angle
+        res[3] = 0
+        return np.where(angle > EPS, res, np.array([0, 0, 0, 0]))
 
-    def from_quat(self, q):
+    @classmethod
+    def from_quat(cls, q):
         assert q.shape == (4, 1) or q.shape == (4,)
         x = np.zeros((4,1))
         den = 1 + q[0]
@@ -382,15 +400,20 @@ class SO3MRP(LieGroup):
         x[1] = q[2] / den
         x[2] = q[3] / den
         x[3] = 0
-        r = self.shadow_if_necessary(x)
+        r = cls.shadow_if_necessary(x)
         r[3] = 0
         return r
 
-    def from_dcm(self, R):
-        return self.from_quat(SO3Quat.from_dcm(R))
+    @classmethod
+    def from_dcm(cls, R):
+        return cls.from_quat(SO3Quat.from_dcm(R))
 
-    def from_euler(self, e):
-        return self.from_quat(SO3Quat.from_euler(e))
-
-    def identity(self):
-        return np.array([0, 0, 0, 0])
+    @classmethod
+    def from_euler(cls, e):
+        return cls.from_quat(SO3Quat.from_euler(e))
+    
+DCM = SO3DCM
+Euler = SO3Euler
+Quat = SO3Quat
+MRP = SO3MRP
+so3 = so3algebra
