@@ -10,6 +10,8 @@ import numpy as np
 
 EPS = 1e-7
 
+def wrap(x):
+    return np.where(np.abs(x) >= np.pi, (x + np.pi) % (2 * np.pi) - np.pi, x)
 
 class LieAlgebra:
     def __init__(self, param): # param should be np.array
@@ -25,7 +27,7 @@ class LieAlgebra:
         return self.rmul(other)
 
     def __neg__(self):
-        return self.neg(self)
+        return self.neg()
     
     def __eq__(self, other) -> bool:
         return np.linalg.norm(self.param - other.param) < EPS
@@ -97,9 +99,20 @@ class LieGroup(abc.ABC):
         """
         if not isinstance(other, type(self)):
             return TypeError("Lie Group types must match for product")
-        assert isinstance(other, LieGroup)
+        # assert isinstance(type(other), LieGroup)
         return self.product(other)
     
+    def __matmul__(self, other):
+        """
+        The * operator will be used as the Group multiplication operator
+        (see product)
+        """
+        if not isinstance(other, type(self)):
+            return TypeError("Lie Group types must match for product")
+        # assert isinstance(type(other), LieGroup)
+        return self.product(other)
+    
+
     def __repr__(self):
         return repr(self.param)
 
@@ -130,7 +143,6 @@ class LieGroup(abc.ABC):
         The inverse operator G1*G1.inv() = e
         """ 
     
-    @property
     @abc.abstractmethod
     def product(self, other):
         """

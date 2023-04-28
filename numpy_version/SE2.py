@@ -1,32 +1,15 @@
 import numpy as np
 from base import EPS, LieAlgebra, LieGroup
 from SO2 import so2, SO2, wrap
-
-def matrix_exp(A, n=30):
-    s = np.zeros((3, 3))
-    A_i = np.eye(3)
-    for i in range(n):
-        s = s + A_i/math.factorial(i)
-        A_i = A_i@A
-    return s
-
-
-class Vector:
-    
-    def __repr__(self):
-        return repr(self.matrix)
-
-    def __mul__(self, other):
-        return NotImplementedError('')
     
 class se2algebra(LieAlgebra):
     def __init__(self, param):
         super().__init__(param)
         assert param.shape == (3,1) or param.shape == (3,)
-        self.theta = np.reshape(wrap(param[2]), ())
+        self.theta = np.reshape(wrap(param[2]), (1,))
         self.w = so2(self.theta).wedge
         self.v = param[0:2]
-        self.param = np.block([self.v, self.theta])
+        self.param = np.block([self.v, self.theta[0]])
     
     def add(self, other):
         return se2algebra(self.param + other.param)
@@ -46,7 +29,7 @@ class se2algebra(LieAlgebra):
     
     @property
     def ad_matrix(self):
-        x, y, theta = self.v[0], self.v[1], self.theta
+        x, y, theta = self.v[0], self.v[1], self.theta[0]
         return np.array([
             [0, -theta, y],
             [theta, 0, -x],
@@ -66,14 +49,14 @@ class SE2group(LieGroup):
     def __init__(self, param):
         super().__init__(param)
         assert param.shape == (3,1) or param.shape == (3,)
-        param[2] = np.reshape(wrap(param[2]), ())
-        self.param = param
-        self.R = SO2(param[2]).to_matrix
+        self.theta = np.reshape(wrap(param[2]), (1,))
+        self.R = SO2(self.theta).to_matrix
         self.p = param[0:2]
+        self.param = np.block([self.p, self.theta[0]])
     
     @staticmethod
     def identity():
-        return np.eye(3)
+        return SE2group(np.array([0,0,0]))
     
     @property
     def to_matrix(self):
@@ -87,7 +70,6 @@ class SE2group(LieGroup):
         return np.block([[self.R.T, -self.R.T@self.p.reshape(2,1)],
                          [np.zeros((1,2)), 1]])
     
-    @property
     def product(self, other):
         return np.block([[self.R@other.R, (self.R@self.p+other.p).reshape(2,1)],
                          [np.zeros((1,2)), 1]])
@@ -95,8 +77,15 @@ class SE2group(LieGroup):
     @property
     def Ad_matrix(self):
         v = np.array([self.p[1], -self.p[0]])
-        return np.block([[self.R, v.reshape(2,1)]
+        return np.block([[self.R, v.reshape(2,1)],
                          [np.zeros((1,2)), 1]])
+    
+    @classmethod
+    def to_vec(cls, X):
+        R = X[0:2,0:2]
+        theta = SO2.to_vec(R)
+        p = X[0:2,2]
+        return np.block([p,theta])
 
     @classmethod
     def log(cls, G: "SE2group") -> se2algebra:
@@ -110,18 +99,18 @@ class SE2group(LieGroup):
             [-b, a]
         ])/(a**2 + b**2)
         p = V_inv@v
-        return se2algebra(np.block([p, theta])).wedge
+        return se2algebra(np.block([p, theta]))
     
     @classmethod
     def exp(cls, g: "se2algebra") -> "SE2group":
 
-        theta = g.theta
+        theta = g.theta[0]
         with np.errstate(divide='ignore',invalid='ignore'):
             a = np.where(np.abs(theta) < 1e-3, 1 - theta**2/6 + theta**4/120, np.sin(theta)/theta)
             b = np.where(np.abs(theta) < 1e-3, theta/2 - theta**3/24 + theta**5/720, (1 - np.cos(theta))/theta)
         V = np.array([[a, -b], [b, a]])
-        p = V@g.v
-        return SE2group(np.block([p,theta])).to_matrix
+        p = V@(g.v)
+        return SE2group(np.block([p,theta]))
     
 se2 = se2algebra
 SE2 = SE2group

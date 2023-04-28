@@ -36,8 +36,9 @@ class se3algebra(LieAlgebra): # param: [x,y,z,theta1,theta2,theta3]
         takes 6x1 lie algebra
         input vee operator [x,y,z,theta1,theta2,theta3]
         """
-        vw = so3(self.v).wedge
-        return np.block([[self.w, vw],[np.zeros((3,3)), self.w]])
+        v = self.v
+        vx = np.array([[0, -v[2], v[1]],[v[2], 0, -v[0]],[-v[1],v[0],0]])
+        return np.block([[self.w, vx],[np.zeros((3,3)), self.w]])
  
     @classmethod
     def vee(cls, w): # w is 4x4 Lie algebra matrix
@@ -60,7 +61,7 @@ class SE3group(LieGroup):
 
     @staticmethod
     def identity():
-        return np.eye(4)
+        return SE3group(np.array([0,0,0,0,0,0]))
     
     @property
     def to_matrix(self):
@@ -74,23 +75,30 @@ class SE3group(LieGroup):
         return np.block([[self.R.T, -self.R.T@self.p.reshape(3,1)],
                          [np.zeros((1,3)), 1]])
     
-    @property
     def product(self, other):
         return np.block([[self.R@other.R, (self.R@self.p+other.p).reshape(3,1)],
                          [np.zeros((1,3)), 1]])
 
     @property
     def Ad_matrix(self): # Ad matrix of v(6x1) for SE3 Lie Group
-        px = so3(self.param[3:6]).wedge # skew-symmetric (equivalent to wedge in so3)
+        p = self.p
+        px = np.array([[0, -p[2], p[1]],[p[2], 0, -p[0]],[-p[1],p[0],0]]) # skew-symmetric
         return np.block([[self.R, px@self.R],
                          [np.zeros((3,3)),self.R]])
+    
+    @classmethod
+    def to_vec(cls, X):
+        R = X[0:3, 0:3]
+        theta = Euler.from_dcm(R)
+        p = X[0:3,3]
+        return np.block([p,theta])
 
     @classmethod
     def log(cls, G: "SE3group") -> "se3algebra": # SE3 matrix to se3 matrix
         X = G.to_matrix
         R = X[0:3, 0:3] # get the SO3 Lie group matrix
         theta = np.arccos((np.trace(R) - 1) / 2)
-        wSkew = DCM.log(DCM(R))
+        wSkew = DCM.log(DCM(R)).wedge
         C1 = np.where(np.abs(theta)<EPS, 1 - theta ** 2 / 6 + theta ** 4 / 120, np.sin(theta)/theta)
         C2 = np.where(np.abs(theta)<EPS, 0.5 - theta ** 2 / 24 + theta ** 4 / 720, (1 - np.cos(theta)) / theta ** 2)
         V_inv = (
@@ -101,7 +109,7 @@ class SE3group(LieGroup):
 
         t = X[0:3,3]
         uInv = V_inv @ t
-        return np.block([[wSkew, uInv.reshape(3,1)],[np.zeros((1,4))]])
+        return se3algebra(np.block([uInv, so3.vee(wSkew)]))
     
     @classmethod
     def exp(cls, g:"se3algebra") -> "SE3group": # Lie algebra to Lie group # vw is v in wedge form (se3 lie algebra)
@@ -113,21 +121,14 @@ class SE3group(LieGroup):
         # translational components u
         u = np.array([v[0],v[1],v[2]])
 
-        R = DCM.exp(so3(v_so3))  #'Dcm' for direction cosine matrix representation of so3 LieGroup Rotational
+        R = DCM.exp(so3(v_so3)).to_matrix  #'Dcm' for direction cosine matrix representation of so3 LieGroup Rotational
         C1 = np.where(np.abs(theta)<EPS, 1 - theta ** 2 / 6 + theta ** 4 / 120, np.sin(theta)/theta)
         C2 = np.where(np.abs(theta)<EPS, 0.5 - theta ** 2 / 24 + theta ** 4 / 720, (1 - np.cos(theta)) / theta ** 2)
         C = np.where(np.abs(theta)<EPS, 1/6 - theta ** 2 /120 + theta ** 4 / 5040, (1 - C1) / theta ** 2)
 
         V = np.eye(3) + C2 * X_so3 + C * X_so3 @ X_so3
 
-        return np.block([[R, (V@u).reshape(3,1)],[np.zeros((1,3)), 1]]) # return 4x4 SE3 Matrix
-    
-    @classmethod
-    def to_vec(cls, X):
-        R = X[0:3, 0:3]
-        theta = Euler.from_dcm(R)
-        p = X[0:3,3]
-        return np.block([p,theta])
+        return SE3group(np.block([V@u, Euler.from_dcm(R)]))
     
 se3 = se3algebra
 SE3 = SE3group
