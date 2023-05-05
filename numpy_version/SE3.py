@@ -56,7 +56,7 @@ class SE3group(LieGroup):
         super().__init__(param)
         assert param.shape == (6,1) or param.shape == (6,)
         self.param = param
-        self.R = DCM.from_euler(param[3:6])
+        self.R = DCM.from_euler(Euler(param[3:6])).param
         self.p = param[0:3]
 
     @staticmethod
@@ -89,7 +89,7 @@ class SE3group(LieGroup):
     @classmethod
     def to_vec(cls, X):
         R = X[0:3, 0:3]
-        theta = Euler.from_dcm(R)
+        theta = Euler.from_dcm(DCM(R)).param
         p = X[0:3,3]
         return np.block([p,theta])
 
@@ -121,14 +121,14 @@ class SE3group(LieGroup):
         # translational components u
         u = np.array([v[0],v[1],v[2]])
 
-        R = DCM.exp(so3(v_so3)).to_matrix  #'Dcm' for direction cosine matrix representation of so3 LieGroup Rotational
+        R = DCM.exp(so3(v_so3))  #'Dcm' for direction cosine matrix representation of so3 LieGroup Rotational
         C1 = np.where(np.abs(theta)<EPS, 1 - theta ** 2 / 6 + theta ** 4 / 120, np.sin(theta)/theta)
         C2 = np.where(np.abs(theta)<EPS, 0.5 - theta ** 2 / 24 + theta ** 4 / 720, (1 - np.cos(theta)) / theta ** 2)
         C = np.where(np.abs(theta)<EPS, 1/6 - theta ** 2 /120 + theta ** 4 / 5040, (1 - C1) / theta ** 2)
 
         V = np.eye(3) + C2 * X_so3 + C * X_so3 @ X_so3
 
-        return SE3group(np.block([V@u, Euler.from_dcm(R)]))
+        return SE3group(np.block([V@u, Euler.from_dcm(R).param]))
     
 se3 = se3algebra
 SE3 = SE3group

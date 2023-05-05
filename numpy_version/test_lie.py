@@ -81,13 +81,13 @@ class Test_LieGroupSE2(ProfiledTestCase):
 class Test_LieGroupSO3(ProfiledTestCase):
     def test_ctor(self):    
         v = np.array([1])
-        G1 = Euler(np.array([1, 0, 0]))
+        G1 = DCM.from_euler(Euler(np.array([1, 0, 0])))
 
     def test_identity(self):
-        e = Euler.identity()
-        G2 = Euler(np.array([0, 1, 0]))
-        self.assertEqual(Euler(e * G2), G2)
-        self.assertEqual(Euler(G2 * e), G2)
+        e = DCM.identity()
+        G2 = DCM.from_euler(Euler(np.array([0, 1, 0])))
+        self.assertEqual(DCM(e * G2), G2)
+        self.assertEqual(DCM(G2 * e), G2)
         self.assertEqual(G2, G2)
 
     def test_addition(self):
@@ -98,7 +98,7 @@ class Test_LieGroupSO3(ProfiledTestCase):
 
     def test_exp_log(self):
         g = so3(np.array([.1, .2, .3]))
-        self.assertEqual(g, Euler.log(Euler.exp(g)))
+        self.assertEqual(g, DCM.log(DCM.exp(g)))
 
 class Test_LieGroupSE3(ProfiledTestCase):
     def test_ctor(self):    
