@@ -101,6 +101,7 @@ class SE3group(LieGroup):
         wSkew = DCM.log(DCM(R)).wedge
         C1 = np.where(np.abs(theta)<EPS, 1 - theta ** 2 / 6 + theta ** 4 / 120, np.sin(theta)/theta)
         C2 = np.where(np.abs(theta)<EPS, 0.5 - theta ** 2 / 24 + theta ** 4 / 720, (1 - np.cos(theta)) / theta ** 2)
+        print((1 / theta**2) * (1 - C1 / (2 * C2)))
         V_inv = (
             np.eye(3)
             - wSkew / 2
