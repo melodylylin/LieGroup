@@ -1,6 +1,6 @@
 import casadi as ca
-from base import EPS, LieAlgebra, LieGroup
-from SO2 import so2, SO2, wrap
+from .base import EPS, LieAlgebra, LieGroup
+from .SO2 import so2, SO2, wrap
     
 class se2algebra(LieAlgebra):
     def __init__(self, param):
