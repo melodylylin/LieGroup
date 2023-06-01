@@ -1,11 +1,11 @@
-import casadi as ca
-from base import LieAlgebra, LieGroup, EPS, wrap
+import numpy as np
+from .base import LieAlgebra, LieGroup, EPS, wrap
 
 class so2algebra(LieAlgebra): # euler angle body 3-2-1
     def __init__(self, param):
         super().__init__(param)
         assert param.shape == (1,1) or param.shape == (1,)
-        self.param = wrap(param)
+        self.param = np.reshape(wrap(param), (1,))
 
     def add(self, other):
         return so2algebra(self.param + other.param)
@@ -18,10 +18,11 @@ class so2algebra(LieAlgebra): # euler angle body 3-2-1
 
     @property
     def wedge(self):
-        algebra = ca.SX.zeros(2, 2)
-        algebra[0, 1] = -self.param
-        algebra[1, 0] = self.param
-        return algebra
+        theta = self.param[0]
+        return np.array([
+            [0, -theta],
+            [theta, 0]
+        ])
     
     @property
     def ad_matrix(self):
@@ -30,28 +31,26 @@ class so2algebra(LieAlgebra): # euler angle body 3-2-1
     @classmethod
     def vee(cls, w):
         theta = w[1,0]
-        return ca.SX(theta)
+        return np.array([theta])
     
 
 class SO2group(LieGroup): # input: theta, output: cosine matrix 2x2
     def __init__(self, param):
         super().__init__(param)
         assert self.param.shape == (1, 1) or self.param.shape == (1, )
-        self.param = wrap(param)
+        self.param = np.reshape(wrap(param), (1,))
 
     @staticmethod
     def identity():
-        return SO2group(0)
+        return SO2group(np.array([0]))
 
     @property
     def to_matrix(self):
         theta = self.param[0]
-        matrix = ca.SX.zeros(2, 2)
-        matrix[0, 0] = ca.cos(theta)
-        matrix[0, 1] = -ca.sin(theta)
-        matrix[1, 0] = ca.sin(theta)
-        matrix[1, 1] = ca.cos(theta)
-        return matrix
+        return np.array([
+            [np.cos(theta), -np.sin(theta)],
+            [np.sin(theta), np.cos(theta)]
+        ])
 
     @property
     def inv(self):
@@ -59,7 +58,7 @@ class SO2group(LieGroup): # input: theta, output: cosine matrix 2x2
 
     def product(self, other: "SO2group"):
         theta = self.param + other.param
-        return ca.SX(theta)
+        return np.array([theta])
     
     @property
     def Ad_matrix(self):
@@ -67,8 +66,8 @@ class SO2group(LieGroup): # input: theta, output: cosine matrix 2x2
     
     @classmethod
     def to_vec(cls, X):
-        theta = ca.atan2(X[1, 0], X[0, 0])
-        return ca.SX(theta)
+        theta = np.arctan2(X[1, 0], X[0, 0])
+        return np.array([theta])
     
     @classmethod
     def log(cls, G: "SO2group") -> "so2algebra":
