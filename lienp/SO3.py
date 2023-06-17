@@ -72,7 +72,8 @@ class SO3DCM(LieGroup): # a SO3 direct cosine matrix (3x3)
         return SO3DCM(self.param.T).param
 
     def product(self, other: "SO3DCM"):
-        return self.param @ other.param
+
+        return SO3DCM(self.param@other.param)
     
     @property
     def Ad_matrix(self):
@@ -173,7 +174,7 @@ class SO3Quat(LieGroup):
         res = np.zeros((4,))
         res[0] = r1 * r2 - np.dot(v1, v2)
         res[1:] = r1 * v2 + r2 * v1 + np.cross(v1, v2)
-        return res
+        return SO3Quat(res)
     
     @property
     def Ad_matrix(self):
@@ -334,7 +335,7 @@ class SO3Euler(LieGroup):
         e[0] = np.arctan2(2 * (a * b + c * d), 1 - 2 * (b**2 + c**2))
         e[1] = np.arcsin(2 * (a * c - d * b))
         e[2] = np.arctan2(2 * (a * d + b * c), 1 - 2 * (c**2 + d**2))
-        return Euler(e)
+        return SO3Euler(e)
 
     @classmethod
     def from_dcm(cls, R:"SO3DCM") -> "SO3Euler":
@@ -371,7 +372,7 @@ class SO3MRP(LieGroup):
         den = 1 + na_sq * nb_sq - 2 * np.dot(b, a)
         res[:3] = ((1 - na_sq) * b + (1 - nb_sq) * a - 2 * np.cross(b, a)) / den
         res[3] = 0  # shadow state
-        return res
+        return SO3MRP(res)
     
     @property
     def Ad_matrix(self):

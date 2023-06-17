@@ -71,8 +71,11 @@ class SE2group(LieGroup):
                          [np.zeros((1,2)), 1]])
     
     def product(self, other):
-        return np.block([[self.R@other.R, (self.R@self.p+other.p).reshape(2,1)],
-                         [np.zeros((1,2)), 1]])
+        v = (self.R@self.p+other.p).reshape(2,)
+        # X = np.block([[self.R@other.R, (self.R@self.p+other.p).reshape(2,1)],
+        #                  [np.zeros((1,2)), 1]])
+        x = np.block([v, self.theta+other.theta])
+        return SE2group(x)
 
     @property
     def Ad_matrix(self):

@@ -86,8 +86,9 @@ class SE3group(LieGroup):
     
     def product(self, other):
         horz1 = ca.horzcat(ca.mtimes(self.R, other.R), ca.mtimes(self.R, self.p+other.p))
-        horz2 = ca.DM([0,0,0,1]).T
-        return ca.vertcat(horz1, horz2)
+        theta = Euler.from_dcm(DCM(ca.mtimes(self.R, other.R))).param
+        x = ca.vertcat(ca.mtimes(self.R, self.p+other.p), theta)
+        return SE3group(x)
 
     @property
     def Ad_matrix(self): # Ad matrix of v(6x1) for SE3 Lie Group

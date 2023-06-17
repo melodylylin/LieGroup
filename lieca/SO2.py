@@ -55,11 +55,11 @@ class SO2group(LieGroup): # input: theta, output: cosine matrix 2x2
 
     @property
     def inv(self):
-        return self(-self.param).to_matrix
+        return SO2group(-self.param).to_matrix
 
     def product(self, other: "SO2group"):
         theta = self.param + other.param
-        return ca.SX(theta)
+        return SO2group(ca.SX(theta))
     
     @property
     def Ad_matrix(self):

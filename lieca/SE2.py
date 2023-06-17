@@ -71,9 +71,8 @@ class SE2group(LieGroup):
         return ca.vertcat(horz1, horz2)
     
     def product(self, other):
-        horz1 = ca.horzcat(ca.mtimes(self.R, other.R), ca.mtimes(self.R, self.p+other.p))
-        horz2 = ca.DM([0,0,1]).T
-        return ca.vertcat(horz1, horz2)
+        x = ca.vertcat(ca.mtimes(self.R, self.p+other.p), self.theta+other.theta)
+        return SE2group(x)
 
     @property
     def Ad_matrix(self):

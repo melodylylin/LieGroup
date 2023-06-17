@@ -76,9 +76,11 @@ class SE3group(LieGroup):
                          [np.zeros((1,3)), 1]])
     
     def product(self, other):
-        return np.block([[self.R@other.R, (self.R@self.p+other.p).reshape(3,1)],
-                         [np.zeros((1,3)), 1]])
-
+        v = self.R@self.p+other.p
+        R = DCM(self.R@other.R)
+        x = np.block([v, Euler.from_dcm(R).param])
+        return SE3group(x)
+    
     @property
     def Ad_matrix(self): # Ad matrix of v(6x1) for SE3 Lie Group
         p = self.p

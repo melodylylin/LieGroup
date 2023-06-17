@@ -76,7 +76,7 @@ class SO3DCM(LieGroup): # a SO3 direct cosine matrix (3x3)
         return SO3DCM(self.param.T).param
 
     def product(self, other: "SO3DCM"):
-        return self.param @ other.param
+        return SO3DCM(self.param @ other.param)
     
     @property
     def Ad_matrix(self):
@@ -178,7 +178,7 @@ class SO3Quat(LieGroup):
         res = ca.SX(4,1)
         res[0] = r1 * r2 - ca.dot(v1, v2)
         res[1:] = r1 * v2 + r2 * v1 + ca.cross(v1, v2)
-        return res
+        return SO3Quat(res)
     
     @property
     def Ad_matrix(self):
@@ -376,7 +376,7 @@ class SO3MRP(LieGroup):
         den = 1 + na_sq * nb_sq - 2 * ca.dot(b, a)
         res[:3] = ((1 - na_sq) * b + (1 - nb_sq) * a - 2 * ca.cross(b, a)) / den
         res[3] = 0  # shadow state
-        return res
+        return SO3MRP(res)
     
     @property
     def Ad_matrix(self):
