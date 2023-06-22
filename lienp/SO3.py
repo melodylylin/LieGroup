@@ -15,6 +15,8 @@ SO3:
 (e.g., DCM.exp(A) -> DCM, where A = so3(a))
 """
 
+np.seterr(all="ignore")
+
 class so3algebra(LieAlgebra): # euler angle body 3-2-1
     def __init__(self, param):
         super().__init__(param)

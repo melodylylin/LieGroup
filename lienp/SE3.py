@@ -6,7 +6,6 @@ from .SO3 import DCM, Euler, so3
 - exp & log: inputs should be in se3 or SE3 format, both return matrix lie group
 """
 
-
 class se3algebra(LieAlgebra): # param: [x,y,z,theta1,theta2,theta3]
     def __init__(self, param):
         super().__init__(param)

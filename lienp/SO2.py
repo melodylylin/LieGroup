@@ -1,6 +1,8 @@
 import numpy as np
 from .base import LieAlgebra, LieGroup, EPS, wrap
 
+np.seterr(all="ignore")
+
 class so2algebra(LieAlgebra): # euler angle body 3-2-1
     def __init__(self, param):
         super().__init__(param)
