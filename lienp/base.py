@@ -11,7 +11,8 @@ import numpy as np
 EPS = 1e-7
 
 def wrap(x):
-    return np.where(np.abs(x) >= np.pi, (x + np.pi) % (2 * np.pi) - np.pi, x)
+    theta = np.where(np.abs(x) >= np.pi, (x + np.pi) % (2 * np.pi) - np.pi, x)
+    return theta
 
 class LieAlgebra:
     def __init__(self, param): # param should be np.array

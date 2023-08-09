@@ -6,12 +6,12 @@ from pstats import Stats
 
 import numpy as np
 
-from base import EPS
+from .base import EPS
 # from cyecca.lie.r import LieGroupR, LieAlgebraR
-from SO2 import so2, SO2
-from SO3 import so3, DCM, Quat, Euler, MRP
-from SE3 import se3, SE3
-from SE2 import se2, SE2
+from .SO2 import so2, SO2
+from .SO3 import so3, DCM, Quat, Euler, MRP
+from .SE3 import se3, SE3
+from .SE2 import se2, SE2
 
 
 class ProfiledTestCase(unittest.TestCase):
